@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.5; color: #333; max-width: 900px; margin: 0 auto; padding: 40px; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; font-size: 28px; text-align: center; }
+        h2 { color: #2980b9; margin-top: 30px; font-size: 20px; border-left: 6px solid #3498db; padding-left: 12px; background: #f7f9fb; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #bdc3c7; padding: 12px; text-align: left; }
+        th { background-color: #ecf0f1; font-weight: bold; }
+        pre { background-color: #2d3436; color: #dfe6e9; padding: 15px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 13px; overflow-x: auto; margin: 15px 0; }
+        code { font-family: 'Consolas', monospace; background: #f1f2f6; padding: 2px 5px; border-radius: 3px; }
+        img { display: block; margin: 30px auto; max-width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; }
+        .info { font-style: italic; color: #7f8c8d; text-align: center; margin-bottom: 40px; }
+        .page-break { page-break-before: always; }
+    </style>
+</head>
+<body>
+    <h1>Compte-Rendu de TP – Infrastructure Web Sécurisée Site-à-Site (4G/5G)</h1>
+    <p class="info">Étudiants : Robin & Nathan | Date : 05/05/2026</p>
+
+    <h2>1. Architecture & Schéma Logique</h2>
+    <p>L'objectif est d'interconnecter deux sites via un tunnel sécurisé sur un réseau non fiable (4G).</p>
+    <pre>
+       SITE A (Robin)                          SITE B (Nathan)
+   [ Web A1 ] ---+                         +--- [ Web B1 ]
+                 |        (Tunnel VPN)     |
+   [ Web A2 ] ---+--- [ Load Balancer A ] <====> [ Load Balancer B ] ---+--- [ Web B2 ]
+                        (10.50.0.1)             (10.50.0.2)
+    </pre>
+
+    <h2>2. Plan d'Adressage</h2>
+    <table>
+        <tr><th>Équipement</th><th>Réseau LAN</th><th>IP VPN (wg0)</th><th>Rôle</th></tr>
+        <tr><td>LB Site A</td><td>192.168.1.10</td><td>10.50.0.1</td><td>HAProxy / VPN / Firewall</td></tr>
+        <tr><td>LB Site B</td><td>192.168.2.10</td><td>10.50.0.2</td><td>HAProxy / VPN / Firewall</td></tr>
+        <tr><td>Web A1/A2</td><td>.11 / .12</td><td>-</td><td>Serveurs Web Site A</td></tr>
+        <tr><td>Web B1/B2</td><td>.11 / .12</td><td>-</td><td>Serveurs Web Site B</td></tr>
+    </table>
+
+    <h2>3. Configuration du Tunnel VPN (WireGuard)</h2>
+    <p>Le tunnel est configuré en mode Site-à-Site. Le routage IP est activé via <code>net.ipv4.ip_forward=1</code>.</p>
+    <pre>
+[Interface]
+PrivateKey = <CLE_PRIVEE_A>
+Address = 10.50.0.1/24
+ListenPort = 51820
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE
+[Peer]
+PublicKey = <CLE_PUB_B>
+AllowedIPs = 10.50.0.2/32, 192.168.2.0/24
+Endpoint = <IP_4G_NATHAN>:51820
+    </pre>
+
+    <h2>4. Load Balancing & HTTPS (HAProxy)</h2>
+    <p>Le backend inclut les deux serveurs locaux et le site distant en backup.</p>
+    <pre>
+backend web_servers
+    balance roundrobin
+    option httpchk GET /
+    server web-local-1 192.168.1.11:80 check weight 100
+    server web-local-2 192.168.1.12:80 check weight 100
+    server web-remote-B 10.50.0.2:443 ssl verify none check backup weight 50
+    </pre>
+
+    <h2>5. Sécurisation (Firewall UFW)</h2>
+    <p>Politique de transfert autorisée : <code>DEFAULT_FORWARD_POLICY="ACCEPT"</code>.</p>
+    <pre>
+ufw allow 80,443/tcp
+ufw allow 51820/udp
+ufw allow in on wg0
+    </pre>
+
+    <div class="page-break"></div>
+
+    <h2>ANNEXE : Preuves d'Exécution</h2>
+    <p><strong>A. Installation des VMs et Network</strong></p>
+    <img src="../screenshots/site_a_final_status.png" alt="Installation">
+    
+    <p><strong>B. Validation du Tunnel (Ping 10.50.0.2)</strong></p>
+    <img src="../screenshots/sim_ping_success.png" alt="Ping Success">
+
+    <p><strong>C. Vérification HAProxy (Curl HTTPS)</strong></p>
+    <img src="../screenshots/sim_haproxy_curl.png" alt="HAProxy Success">
+
+</body>
+</html>

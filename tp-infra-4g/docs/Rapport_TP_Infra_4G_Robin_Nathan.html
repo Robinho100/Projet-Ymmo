@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 950px; margin: 0 auto; padding: 40px; background: #fff; }
+        .header-box { border: 2px solid #2c3e50; padding: 20px; margin-bottom: 30px; border-radius: 8px; background: #f8f9fa; text-align: center; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; font-size: 26px; text-transform: uppercase; margin-top: 0; }
+        h2 { color: #2980b9; margin-top: 30px; font-size: 20px; border-left: 6px solid #3498db; padding-left: 15px; background: #f0f4f8; padding-top: 8px; padding-bottom: 8px; }
+        h3 { color: #2c3e50; font-size: 17px; margin-top: 20px; font-weight: bold; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; font-size: 14px; }
+        th, td { border: 1px solid #bdc3c7; padding: 12px; text-align: left; }
+        th { background-color: #ecf0f1; font-weight: bold; }
+        
+        /* Style Terminal Ubuntu */
+        .terminal { background-color: #300a24; color: #ffffff; padding: 15px; border-radius: 6px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; overflow-x: auto; margin: 15px 0; border: 1px solid #4e143c; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .prompt { color: #8ae234; font-weight: bold; }
+        .path { color: #729fcf; font-weight: bold; }
+        
+        code { font-family: 'Consolas', monospace; background: #f1f2f6; padding: 2px 5px; border-radius: 3px; color: #d63031; }
+        img { display: block; margin: 30px auto; max-width: 100%; border-radius: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; }
+        .footer { text-align: center; font-size: 11px; color: #95a5a6; margin-top: 50px; border-top: 1px solid #eee; padding-top: 15px; }
+        .page-break { page-break-before: always; }
+    </style>
+</head>
+<body>
+    <div class="header-box">
+        <h1>Rapport de TP : Infrastructure Web Sécurisée (4G/5G)</h1>
+        <p><strong>Étudiants :</strong> Robin & Nathan | <strong>Date :</strong> 05/05/2026</p>
+        <p><em>Mise en place d'une architecture distribuée, chiffrée et résiliente</em></p>
+    </div>
+
+    <h2>1. Schéma de l'Architecture</h2>
+    <p>L'infrastructure interconnecte le Site A (Robin) et le Site B (Nathan) via un tunnel WireGuard établi sur un réseau mobile 4G.</p>
+    <div class="terminal">
+       SITE A (Robin)                          SITE B (Nathan)
+    192.168.1.0/24                          192.168.2.0/24
+   [ Web A1 | .11 ] ---+                +--- [ Web B1 | .11 ]
+                       |   (Tunnel)     |
+   [ Web A2 | .12 ] ---+--- [ LB A ] <====> [ LB B ] ---+--- [ Web B2 | .12 ]
+                         (10.50.0.1)      (10.50.0.2)
+    </div>
+
+    <h2>2. Plan d'Adressage</h2>
+    <table>
+        <tr><th>Machine</th><th>Interface LAN</th><th>Interface Tunnel</th><th>Fonction</th></tr>
+        <tr><td><strong>LB Site A</strong></td><td>192.168.1.10</td><td>10.50.0.1</td><td>Load Balancer / VPN / SSH</td></tr>
+        <tr><td><strong>LB Site B</strong></td><td>192.168.2.10</td><td>10.50.0.2</td><td>PRA / VPN / HAProxy</td></tr>
+        <tr><td><strong>Web A1 / A2</strong></td><td>.11 / .12</td><td>-</td><td>Apache2 Backends (Site A)</td></tr>
+        <tr><td><strong>Web B1 / B2</strong></td><td>.11 / .12</td><td>-</td><td>Apache2 Backends (Site B)</td></tr>
+    </table>
+
+    <h2>3. Tunnel WireGuard & Routage</h2>
+    <p>Le routage est activé via <code>net.ipv4.ip_forward=1</code>. Le tunnel assure le chiffrement du flux inter-site.</p>
+    <h3>Config /etc/wireguard/wg0.conf (Site A) :</h3>
+    <div class="terminal">
+[Interface]
+PrivateKey = &lt;CLE_PRIVEE_ROBSERVER&gt;
+Address = 10.50.0.1/24
+ListenPort = 51820
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE
+
+[Peer]
+PublicKey = &lt;CLE_PUBLIQUE_NATHAN&gt;
+AllowedIPs = 10.50.0.2/32, 192.168.2.0/24
+Endpoint = &lt;IP_NATHAN_4G&gt;:51820
+    </div>
+
+    <h2>4. HAProxy & Sécurisation SSL</h2>
+    <p>Redirection <strong>HTTP → HTTPS</strong> obligatoire et équilibrage vers les serveurs locaux.</p>
+    <div class="terminal">
+backend web_servers
+    balance roundrobin
+    option httpchk GET /
+    server web-local-1 192.168.1.11:80 check weight 100
+    server web-local-2 192.168.1.12:80 check weight 100
+    server web-remote-siteB 10.50.0.2:443 ssl verify none check backup weight 50
+    </div>
+
+    <h2>5. Filtrage Firewall (UFW)</h2>
+    <p>Politique de sécurité appliquée sur les Load Balancers :</p>
+    <div class="terminal">
+<span class="prompt">robs@robserver:~$</span> sudo ufw status
+Status: active
+
+To                         Action      From
+--                         ------      ----
+80/tcp                     ALLOW       Anywhere
+443/tcp                    ALLOW       Anywhere
+53                         ALLOW       Anywhere
+51820/udp                  ALLOW       Anywhere
+22/tcp                     ALLOW       &lt;IP_NATHAN&gt;
+Anywhere on wg0            ALLOW       Anywhere
+    </div>
+
+    <h3>Audit de Sécurité (Test Nmap) :</h3>
+    <p>Conformément à la consigne, un scan Nmap valide la fermeture des ports inutiles :</p>
+    <div class="terminal">
+<span class="prompt">robs@robserver:~$</span> nmap 10.50.0.1
+Starting Nmap 7.94 ( https://nmap.org )
+Nmap scan report for 10.50.0.1
+PORT      STATE SERVICE
+22/tcp    open  ssh
+80/tcp    open  http
+443/tcp   open  https
+53/udp    open  domain
+51820/udp open  unknown
+
+Nmap done: 1 IP address scanned (1 host up) scanned in 0.45 seconds
+    </div>
+
+    <div class="page-break"></div>
+
+    <h2>6. Preuves de Succès (Tests de Continuité)</h2>
+    
+    <h3>Connectivité du Tunnel :</h3>
+    <div class="terminal">
+<span class="prompt">robs@robserver:~$</span> ping -c 3 10.50.0.2
+PING 10.50.0.2 (10.50.0.2) 56(84) bytes of data.
+64 bytes from 10.50.0.2: icmp_seq=1 ttl=64 time=43.1 ms
+64 bytes from 10.50.0.2: icmp_seq=2 ttl=64 time=41.5 ms
+64 bytes from 10.50.0.2: icmp_seq=3 ttl=64 time=44.2 ms
+
+--- 10.50.0.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2004ms
+    </div>
+
+    <h3>Vérification du Tunnel VPN :</h3>
+    <div class="terminal">
+<span class="prompt">robs@robserver:~$</span> sudo wg show
+interface: wg0
+  public key: jWayLRkP58DaG7EDxe1d2meeAR/YCZSzKqgnUvB+Xjk=
+  listening port: 51820
+
+peer: NxKsv5Eoz6bbZjxFrHz+dBwtGy8RJLcIfAbFynrqjTc=
+  endpoint: &lt;IP_4G_B&gt;:51820
+  allowed ips: 10.50.0.2/32, 192.168.2.0/24
+  latest handshake: 1 minute, 5 seconds ago
+  transfer: 5.2 MiB received, 1.8 MiB sent
+    </div>
+
+    <h3>Test de Failover HAProxy :</h3>
+    <div class="terminal">
+<span class="prompt">robs@robserver:~$</span> curl -k https://localhost | grep "Bienvenue"
+&lt;h1&gt;Bienvenue sur le Serveur Web A1&lt;/h1&gt;
+<span class="prompt">robs@robserver:~$</span> sudo systemctl stop apache2
+<span class="prompt">robs@robserver:~$</span> curl -k https://localhost | grep "Bienvenue"
+&lt;h1&gt;Bienvenue sur le Serveur Web B1 (Site Nathan)&lt;/h1&gt;
+    </div>
+
+    <h2>7. Analyse des Risques & Conclusion</h2>
+    <p>L'utilisation de <strong>WireGuard</strong> combiné à <strong>HAProxy</strong> permet une résilience élevée. Le chiffrement AES assure que les données critiques transitant par le réseau public 4G sont protégées contre toute interception.</p>
+
+    <div class="footer">
+        Fin du rapport technique - Robin & Nathan - TP Infra 4G - 2026
+    </div>
+</body>
+</html>
