@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Ymmo Real Estate Platform)
+  db:
+    image: postgres:15-alpine
+    container_name: ymmo-db
+    environment:
+      POSTGRES_DB: ymmo_db
+      POSTGRES_USER: ymmo_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-securepass123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./scripts/db/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - ymmo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ymmo_user -d ymmo_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Django Web Application
+  web:
+    build:
+      context: ./src/web
+      dockerfile: ../docker/Dockerfile.web
+    container_name: ymmo-web
+    environment:
+      DEBUG: ${DEBUG:-False}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DATABASE_URL: postgresql://ymmo_user:${DB_PASSWORD:-securepass123}@db:5432/ymmo_db
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src/web:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    networks:
+      - ymmo-network
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy + Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: ymmo-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/certs:/etc/nginx/certs:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+    networks:
+      - ymmo-network
+    depends_on:
+      - web
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache (optional, for sessions + caching)
+  redis:
+    image: redis:7-alpine
+    container_name: ymmo-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ymmo-network
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PgAdmin (Database Management UI)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ymmo-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@ymmo.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    networks:
+      - ymmo-network
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  db_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  ymmo-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Deployment Notes:
+# 1. Set environment variables in .env file
+# 2. For production, use managed database (Azure PostgreSQL) instead of container
+# 3. Use Docker Secrets for sensitive data in Swarm/K8s
+# 4. Enable HTTPS with proper SSL certificates
+# 5. Configure backup strategy for volumes (db_data, media_volume)
