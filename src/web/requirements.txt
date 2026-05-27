@@ -1,0 +1,56 @@
+# Ymmo Django Web Application Requirements
+# Python 3.9+
+
+# Core Django
+Django==4.2.8
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-filter==23.5
+django-extensions==3.2.3
+
+# Database
+psycopg2-binary==2.9.9
+sqlparse==0.4.4
+
+# Server
+gunicorn==21.2.0
+whitenoise==6.6.0
+
+# Caching & Sessions
+django-redis==5.4.0
+redis==5.0.1
+
+# Images & Files
+Pillow==10.1.0
+django-storages==1.14.2
+
+# Security
+django-cors-headers==4.3.1
+python-decouple==3.8
+cryptography==41.0.7
+
+# Testing
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-cov==4.1.0
+factory-boy==3.3.0
+faker==22.0.0
+
+# Code Quality
+black==23.12.1
+flake8==6.1.0
+isort==5.13.2
+mypy==1.7.1
+django-stubs==4.2.6
+
+# Async Tasks (optional)
+celery==5.3.4
+celery-beat==2.5.0
+
+# Monitoring & Logging
+sentry-sdk==1.39.1
+django-debug-toolbar==4.2.0
+
+# Development Tools
+ipython==8.18.1
+ipdb==0.13.13
