@@ -1,0 +1,32 @@
+# Testing requirements for Django code validation
+# Excludes system-dependent packages (psycopg2, PostGIS, etc.)
+
+# Core Django
+Django==4.2.8
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-filter==23.5
+django-extensions==3.2.3
+djangorestframework-simplejwt==5.3.1
+drf-yasg==1.21.7
+
+# Testing
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-cov==4.1.0
+factory-boy==3.3.0
+faker==22.0.0
+
+# Code Quality
+black==23.12.1
+flake8==6.1.0
+isort==5.13.2
+
+# Security & Config
+python-decouple==3.8
+cryptography==41.0.7
+dj-database-url==2.1.0
+
+# Development Tools
+ipython==8.18.1
+ipdb==0.13.13
