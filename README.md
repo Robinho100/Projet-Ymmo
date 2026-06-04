@@ -1,62 +1,32 @@
 # 🏢 Projet Ymmo - Infrastructure & Plateforme Immobilière
 
 ## 📋 Vue d'ensemble
+Le projet **Ymmo** consiste à déployer une infrastructure sécurisée et une plateforme web pour un groupe immobilier national. L'architecture repose sur un modèle **Hub & Spoke** (Siège + 12 agences).
 
-**Ymmo** est une plateforme de gestion immobilière distribuée avec architecture **Hub & Spoke** sécurisée :
-- **Siège** : Aix-en-Provence (30 postes + 2 serveurs)
-- **Agences** : 12 sites distants (5 postes chacun)
-- **Connexion** : Tunnels VPN WireGuard chiffrés
-- **Services** : Active Directory, DB SQL, Site Web, Sauvegarde centralisée
+## 👥 Équipe & Répartition
+- **Robin** : Architecture réseau, Plan d'adressage, Budgétisation & Documentation.
+- **Titouan** : Infrastructure Cloud (Azure), Active Directory, DNS & Sécurité (GPO).
+- **Stan** : Développement Web (Django), Base de données (PostgreSQL) & Conteneurisation (Docker).
 
-## 🏗️ Architecture
+## 🏗️ Architecture Technique
+- **Cloud** : Instances Azure (Windows Server & Ubuntu).
+- **Réseau** : Tunnels VPN IPSec entre le siège et les agences.
+- **Identités** : Domaine `ymmo.local`, 5 groupes de sécurité, OUs segmentées.
+- **Web Stack** : Django, PostgreSQL, Redis, Nginx (Reverse Proxy).
 
-```
-SIÈGE (10.0.0.0/24)
-├── Firewall/VPN Gateway (10.0.0.254)
-├── Serveur AD/DNS/DHCP (10.0.0.1) 
-└── Serveur Web/SQL (10.0.0.2)
-       ↓
-    [Tunnels VPN WireGuard]
-       ↓
-AGENCES x12 (10.0.X.0/24)
-├── Routeur VPN local
-├── Switch + Postes (5 chacun)
-└── Imprimante réseau
-```
+## 📂 Structure du Repo
+*   **`docs/`** : Architecture, Budget, Sécurité, Sauvegarde.
+*   **`scripts/ad/`** : Automatisation Active Directory (Titouan).
+*   **`scripts/cloud/`** : Provisioning Azure (Titouan).
+*   **`scripts/vpn/`** : Configuration des tunnels IPSec.
+*   **`src/web/`** : Application Django (Stan).
+*   **`docker/`** : Configuration Docker & Nginx.
+*   **`tp-infra-4g/`** : Rapport de TP sur l'infrastructure 4G (Robin & Nathan).
 
-## 📂 Structure du Projet
-
-*   **`docs/`** : Documentation complète (Architecture, Budget, Plan d'adressage).
-*   **`scripts/powershell/`** : Automatisation Active Directory (Promotion, OUs, Groupes, GPO).
-*   **`scripts/cloud/`** : Initialisation Azure (Provisioning & Setup VM).
-*   **`tp-infra-4g/`** : Configuration et preuves du tunnel VPN sécurisé inter-sites (Robin & Nathan).
-*   **`src/web/`** : Plateforme web Django (Stan).
-*   **`docker-compose.yml`** : Orchestration complète (Django, PostgreSQL, Redis, Nginx, PgAdmin).
-
-## 🚀 Démarrage Rapide
-
-1.  **Infrastructure Azure** : Exécuter `scripts/cloud/init_cloud.sh` pour provisionner les ressources.
-2.  **Configuration Windows** :
-    ```powershell
-    .\scripts\powershell\Setup-ADDS-Ymmo.ps1
-    .\scripts\powershell\Create-OU-Ymmo.ps1
-    .\scripts\powershell\Create-Users-Groups-Ymmo.ps1
-    .\scripts\powershell\Configure-GPO-Ymmo.ps1
-    ```
-3.  **Plateforme Web** : `docker-compose up -d`
-4.  **Interconnexion VPN** : Suivre le guide dans `tp-infra-4g/`.
-
-## 📊 État final du Projet
-
-| Composant | Lead | Statut |
-|-----------|------|--------|
-| Architecture & Docs | Robin | ✅ Terminé |
-| Provisioning Azure | Titouan | ✅ Terminé |
-| AD / DNS / GPO | Titouan/Robin | ✅ Terminé |
-| Tunnels VPN | Nathan | ✅ Terminé |
-| Plateforme Django | Stan | ✅ Terminé |
-| Docker Stack | Stan/Robin | ✅ Terminé |
+## 🚀 Déploiement
+1. Provisionner l'infra : `scripts/cloud/init_cloud.sh`
+2. Configurer l'AD : `scripts/ad/create-groups.ps1`
+3. Lancer le Web : `docker-compose up -d`
 
 ---
-**Équipe :** Robin, Nathan, Stan, Titouan.  
-*Projet finalisé avec rigueur le 4 Juin 2026.*
+*Projet finalisé pour la soutenance du 4 Juin 2026.*

@@ -1,12 +1,12 @@
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database (Ymmo Real Estate Platform)
   db:
     image: postgres:15-alpine
     container_name: ymmo-db
     environment:
       POSTGRES_DB: ymmo_db
       POSTGRES_USER: ymmo_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-P@sswordYmmoSQL!}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-securepass123}
     ports:
       - "5432:5432"
     volumes:
@@ -20,25 +20,43 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Django Web Application
+  # Django Web Application (Stan)
   web:
     build:
-      context: ./src/web
-      dockerfile: ./Dockerfile
+      context: .
+      dockerfile: ./docker/Dockerfile.web
     container_name: ymmo-web
     environment:
-      DEBUG: "True"
-      SECRET_KEY: "ymmo-secret-key-2026"
-      DATABASE_URL: postgresql://ymmo_user:${DB_PASSWORD:-P@sswordYmmoSQL!}@db:5432/ymmo_db
-    ports:
-      - "8000:8000"
+      DEBUG: ${DEBUG:-False}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DATABASE_URL: postgresql://ymmo_user:${DB_PASSWORD:-securepass123}@db:5432/ymmo_db
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - ./src/web:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
     networks:
       - ymmo-network
     depends_on:
       db:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: ymmo-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+    networks:
+      - ymmo-network
+    depends_on:
+      - web
     restart: unless-stopped
 
   # Redis Cache
@@ -49,7 +67,7 @@ services:
       - ymmo-network
     restart: unless-stopped
 
-  # PgAdmin
+  # PgAdmin (Database Management)
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: ymmo-pgadmin
@@ -70,3 +88,5 @@ networks:
 
 volumes:
   db_data:
+  static_volume:
+  media_volume:
