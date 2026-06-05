@@ -31,12 +31,12 @@ Avant de configurer les services, la VM Azure doit être préparée.
 2. Vérifier la connectivité : chaque agence doit pouvoir `ping 10.0.0.1` (Serveur AD).
 
 ## 🌐 Étape 4 : Déploiement de la Plateforme Web
-*Responsable : Stan*
-1. Lancer l'infrastructure applicative (Apache + MySQL) :
+*Responsable : Robin & Titouan*
+1. **Robin** : Configurer et vérifier la base de données PostgreSQL dans le container.
+2. **Titouan** : Lancer l'infrastructure applicative via Docker Compose sur la VM Azure.
    ```bash
    docker-compose up -d
    ```
-2. La base de données `ymmo_db` est automatiquement créée avec l'utilisateur `stan_admin`.
 3. Vérifier l'accès au site sur `http://localhost`.
 
 ## 🛡️ Étape 5 : Validation et Sécurité
