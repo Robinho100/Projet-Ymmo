@@ -31,9 +31,9 @@ Avant de configurer les services, la VM Azure doit être préparée.
 2. Vérifier la connectivité : chaque agence doit pouvoir `ping 10.0.0.1` (Serveur AD).
 
 ## 🌐 Étape 4 : Déploiement de la Plateforme Web
-*Responsable : Robin & Titouan*
-1. **Robin** : Configurer et vérifier la base de données PostgreSQL dans le container.
-2. **Titouan** : Lancer l'infrastructure applicative via Docker Compose sur la VM Azure.
+*Responsable : Stan*
+1. Configurer la base de données PostgreSQL selon la `Matrice_Droits_Acces.md`.
+2. Déployer l'application web via Docker Compose.
    ```bash
    docker-compose up -d
    ```
